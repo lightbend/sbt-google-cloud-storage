@@ -1,6 +1,7 @@
 package com.lightbend.gcsplugin
 
 import sbt.PluginTrigger
+import sbt.AutoPlugin
 
 object GCSPlugin extends AutoPlugin {
 
