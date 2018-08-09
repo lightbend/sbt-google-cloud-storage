@@ -22,7 +22,7 @@ If you want to publish you need to create a service token in the Google Cloud co
 Add the following to plugins.sbt in your project:
 
 
-`addSbtPlugin("com.lightbend" % "sbt-google-cloud-storage" % "0.0.9")`
+`addSbtPlugin("com.lightbend" % "sbt-google-cloud-storage" % "0.0.10")`
 
 ### Using the plugin in your project
 
