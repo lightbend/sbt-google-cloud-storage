@@ -12,7 +12,10 @@ object GCSResource {
   def create(storage: Storage, bucketName: String, blobName: String): GCSResource = {
     val blobId = BlobId.of(bucketName, blobName.replace("//", "/"))
     val blob = storage.get(blobId)
-    GCSResource(storage, bucketName, blobName, blob.getUpdateTime(), blob.getSize, exists = true)
+    if (blob == null)
+      GCSResource(storage, bucketName, blobName, 0, 0, exists = false)
+    else
+      GCSResource(storage, bucketName, blobName, blob.getUpdateTime(), blob.getSize, exists = true)
   }
   def openStream(storage: Storage, resource: GCSResource): InputStream = {
     val blobId = BlobId.of(resource.bucketName, resource.blobName.replace("//", "/"))
