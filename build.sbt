@@ -12,13 +12,13 @@ lazy val commonSettings = Seq(
 lazy val sbtGCSResolver  =
   Project("sbt-google-cloud-storage", file("."))
     .settings(
-      version := "0.0.9",
+      version := "0.0.10",
       organization := "com.lightbend",
-      scalaVersion := "2.12.4",
+      scalaVersion := "2.12.6",
 
       libraryDependencies ++= Vector(
         "org.apache.ivy" % "ivy" % "2.4.0",
-	      "com.google.cloud" % "google-cloud-storage" % "1.7.0"
+	      "com.google.cloud" % "google-cloud-storage" % "1.38.0"
       ),
 
       sbtPlugin := true,
