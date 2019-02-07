@@ -1,18 +1,10 @@
 package com.lightbend.gcsplugin
 
-import sbt.PluginTrigger
-import sbt.AutoPlugin
+import sbt.{AutoPlugin, PluginTrigger, Setting}
 
 object GCSPlugin extends AutoPlugin {
 
-  trait Keys {
-    implicit def toSbtResolver(resolver: GCSResolver): sbt.Resolver = {
-      new sbt.RawRepository(resolver, resolver.getName)
-    }
-  }
-
-  object Keys extends Keys
-  object autoImport extends Keys {
+  object autoImport {
     val GCSResolver = com.lightbend.gcsplugin.GCSResolver
     val GCSPublisher = com.lightbend.gcsplugin.GCSPublisher
     val AccessRights = com.lightbend.gcsplugin.AccessRights
@@ -20,7 +12,7 @@ object GCSPlugin extends AutoPlugin {
 
   import sbt.Keys._
 
-  override def projectSettings = Seq(
+  override def projectSettings: Seq[Setting[_]] = Seq(
     publishMavenStyle := false
   )
 

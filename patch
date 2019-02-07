@@ -1,0 +1,218 @@
+diff --git a/build.sbt b/build.sbt
+index c575de9..2907460 100644
+--- a/build.sbt
++++ b/build.sbt
+@@ -12,7 +12,7 @@ lazy val commonSettings = Seq(
+ lazy val sbtGCSResolver  =
+   Project("sbt-google-cloud-storage", file("."))
+     .settings(
+-      version := "0.0.10",
++      version := "0.0.11",
+       organization := "com.lightbend",
+       scalaVersion := "2.12.6",
+ 
+@@ -22,7 +22,7 @@ lazy val sbtGCSResolver  =
+       ),
+ 
+       sbtPlugin := true,
+-      crossSbtVersions := Vector("1.0.2"),
++      crossSbtVersions := Vector("1.2.8"),
+ 
+       name := "sbt-google-cloud-storage",
+       description := "A SBT resolver and publisher for Google Cloud Storage",
+diff --git a/project/build.properties b/project/build.properties
+index 017bb86..dca663d 100644
+--- a/project/build.properties
++++ b/project/build.properties
+@@ -1 +1 @@
+-sbt.version = 1.0.2
++sbt.version = 1.2.8
+diff --git a/src/main/scala/com/lightbend/gcsplugin/GCSPlugin.scala b/src/main/scala/com/lightbend/gcsplugin/GCSPlugin.scala
+index ffd1b43..09c7160 100644
+--- a/src/main/scala/com/lightbend/gcsplugin/GCSPlugin.scala
++++ b/src/main/scala/com/lightbend/gcsplugin/GCSPlugin.scala
+@@ -1,18 +1,10 @@
+ package com.lightbend.gcsplugin
+ 
+-import sbt.PluginTrigger
+-import sbt.AutoPlugin
++import sbt.{ AutoPlugin, Def, PluginTrigger }
+ 
+ object GCSPlugin extends AutoPlugin {
+ 
+-  trait Keys {
+-    implicit def toSbtResolver(resolver: GCSResolver): sbt.Resolver = {
+-      new sbt.RawRepository(resolver, resolver.getName)
+-    }
+-  }
+-
+-  object Keys extends Keys
+-  object autoImport extends Keys {
++  object autoImport {
+     val GCSResolver = com.lightbend.gcsplugin.GCSResolver
+     val GCSPublisher = com.lightbend.gcsplugin.GCSPublisher
+     val AccessRights = com.lightbend.gcsplugin.AccessRights
+@@ -20,7 +12,7 @@ object GCSPlugin extends AutoPlugin {
+ 
+   import sbt.Keys._
+ 
+-  override def projectSettings = Seq(
++  override def projectSettings: Seq[Def.Setting[Boolean]] = Seq(
+     publishMavenStyle := false
+   )
+ 
+diff --git a/src/main/scala/com/lightbend/gcsplugin/GCSRepository.scala b/src/main/scala/com/lightbend/gcsplugin/GCSRepository.scala
+index d5cff2f..c35fb4e 100644
+--- a/src/main/scala/com/lightbend/gcsplugin/GCSRepository.scala
++++ b/src/main/scala/com/lightbend/gcsplugin/GCSRepository.scala
+@@ -1,19 +1,17 @@
+ package com.lightbend.gcsplugin
+ 
++import java.io.{ FileInputStream, _ }
+ import java.util
+-import java.io._
+-import java.io.FileInputStream
+ 
+-import scala.collection.JavaConverters._
+-
+-import com.google.cloud.storage._
+-import com.google.cloud.storage.Storage
+ import com.google.cloud.storage.Bucket._
++import com.google.cloud.storage.{ Storage, _ }
+ import com.lightbend.gcsplugin.AccessRights._
+ import org.apache.ivy.core.module.descriptor._
+ import org.apache.ivy.plugins.repository._
+ 
+-case class GCSRepository(bucketName: String, publishPolicy: AccessRigths) extends AbstractRepository {
++import scala.collection.JavaConverters._
++
++case class GCSRepository(bucketName: String, publishPolicy: AccessRights) extends AbstractRepository {
+   private val storage: Storage = StorageOptions.getDefaultInstance.getService
+   private val bucket = storage.get(bucketName)
+ 
+@@ -30,7 +28,7 @@ case class GCSRepository(bucketName: String, publishPolicy: AccessRigths) extend
+     else
+       source
+ 
+-    GCSResource.toFile(storage, GCSResource.create(storage, bucketName, extSource), destination)
++    GCSResource.download(storage, GCSResource.create(storage, bucketName, extSource), destination)
+   }
+ 
+   override def list(parent: String): util.List[String] = {
+diff --git a/src/main/scala/com/lightbend/gcsplugin/GCSResolver.scala b/src/main/scala/com/lightbend/gcsplugin/GCSResolver.scala
+index f74f694..4923173 100644
+--- a/src/main/scala/com/lightbend/gcsplugin/GCSResolver.scala
++++ b/src/main/scala/com/lightbend/gcsplugin/GCSResolver.scala
+@@ -3,25 +3,34 @@ package com.lightbend.gcsplugin
+ import org.apache.ivy.plugins.resolver._
+ import sbt.librarymanagement._
+ 
++import scala.language.implicitConversions
++
+ object AccessRights extends Enumeration {
+-  type AccessRigths = Value
++  type AccessRights = Value
+   val PublicRead, InheritBucket = Value
+ }
++
+ import com.lightbend.gcsplugin.AccessRights._
+ 
+-object GCSResolver {
+-  def forBucket(bucketName: String) = {
++object GCSResolver extends Implicits {
++  def forBucket(bucketName: String): GCSResolver = {
+     new GCSResolver("Google Cloud Storage Resolver", bucketName, publishPolicy = AccessRights.InheritBucket)
+   }
+ }
+ 
+-object GCSPublisher {
+-  def forBucket(bucketName: String, publishPolicy: AccessRigths) = {
++object GCSPublisher extends Implicits {
++  def forBucket(bucketName: String, publishPolicy: AccessRights): GCSResolver = {
+     new GCSResolver("Google Cloud Storage Publisher", bucketName, publishPolicy)
+   }
+ }
+ 
+-class GCSResolver(name: String, bucketName: String, publishPolicy: AccessRigths) extends RepositoryResolver {
++trait Implicits {
++  implicit def toSbtResolver(resolver: GCSResolver): sbt.Resolver = {
++    new sbt.RawRepository(resolver, resolver.getName)
++  }
++}
++
++class GCSResolver(name: String, bucketName: String, publishPolicy: AccessRights) extends RepositoryResolver {
+   setName(name)
+   setRepository(GCSRepository(bucketName, publishPolicy))
+   setM2compatible(false)
+diff --git a/src/main/scala/com/lightbend/gcsplugin/GCSResource.scala b/src/main/scala/com/lightbend/gcsplugin/GCSResource.scala
+index 04f3992..cfa9500 100644
+--- a/src/main/scala/com/lightbend/gcsplugin/GCSResource.scala
++++ b/src/main/scala/com/lightbend/gcsplugin/GCSResource.scala
+@@ -1,44 +1,55 @@
+ package com.lightbend.gcsplugin
+ 
+-import java.io._
+-import java.io.File
++import java.io.{ File, _ }
+ import java.nio.channels._
+ 
+-import com.google.cloud.storage._
+-import com.google.cloud.storage.BlobId
++import com.google.cloud.storage.{ BlobId, _ }
+ import org.apache.ivy.plugins.repository._
+ 
+ object GCSResource {
+   def create(storage: Storage, bucketName: String, blobName: String): GCSResource = {
+-    val blobId = BlobId.of(bucketName, blobName.replace("//", "/"))
+-    val blob = storage.get(blobId)
++    val blob = storage.get(blobIdFromName(bucketName, blobName))
+     if (blob == null)
+       GCSResource(storage, bucketName, blobName, 0, 0, exists = false)
+     else
+       GCSResource(storage, bucketName, blobName, blob.getUpdateTime(), blob.getSize, exists = true)
+   }
++
+   def openStream(storage: Storage, resource: GCSResource): InputStream = {
+-    val blobId = BlobId.of(resource.bucketName, resource.blobName.replace("//", "/"))
+-    val blob = storage.get(blobId)
++    val blob = storage.get(blobIdFromName(resource.bucketName, resource.blobName))
+     Channels.newInputStream(blob.reader())
+   }
+-  def toFile(storage: Storage, resource: GCSResource, file: File): Unit = {
+-    val blobId = BlobId.of(resource.bucketName, resource.blobName.replace("//", "/"))
+-    val blob = storage.get(blobId)
++
++  def download(storage: Storage, resource: GCSResource, file: File): Unit = {
++    val blob = storage.get(blobIdFromName(resource.bucketName, resource.blobName))
+     blob.downloadTo(file.toPath)
+   }
++
++  def blobIdFromName(bucketName: String, name: String): BlobId = {
++    BlobId.of(bucketName, name.replace("//", "/"))
++  }
+ }
+ 
+-case class GCSResource(storage: Storage, bucketName: String, blobName: String, lastModified: Long, contentLength: Long, exists: Boolean) extends Resource {
++case class GCSResource(
++    storage: Storage,
++    bucketName: String,
++    blobName: String,
++    lastModified: Long,
++    contentLength: Long,
++    exists: Boolean) extends Resource {
+ 
+   override def getName: String = blobName
++
+   override def getLastModified: Long = lastModified
++
+   override def getContentLength: Long = contentLength
+ 
+   override def openStream(): InputStream = {
+     GCSResource.openStream(storage, this)
+   }
++
+   override def isLocal = false
++
+   override def clone(cloneName: String): Resource = copy()
+ 
+ }

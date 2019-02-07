@@ -1,19 +1,17 @@
 package com.lightbend.gcsplugin
 
+import java.io.{ FileInputStream, _ }
 import java.util
-import java.io._
-import java.io.FileInputStream
 
-import scala.collection.JavaConverters._
-
-import com.google.cloud.storage._
-import com.google.cloud.storage.Storage
 import com.google.cloud.storage.Bucket._
+import com.google.cloud.storage.{ Storage, _ }
 import com.lightbend.gcsplugin.AccessRights._
 import org.apache.ivy.core.module.descriptor._
 import org.apache.ivy.plugins.repository._
 
-case class GCSRepository(bucketName: String, publishPolicy: AccessRigths) extends AbstractRepository {
+import scala.collection.JavaConverters._
+
+case class GCSRepository(bucketName: String, publishPolicy: AccessRights) extends AbstractRepository {
   private val storage: Storage = StorageOptions.getDefaultInstance.getService
   private val bucket = storage.get(bucketName)
 
@@ -30,7 +28,7 @@ case class GCSRepository(bucketName: String, publishPolicy: AccessRigths) extend
     else
       source
 
-    GCSResource.toFile(storage, GCSResource.create(storage, bucketName, extSource), destination)
+    GCSResource.download(storage, GCSResource.create(storage, bucketName, extSource), destination)
   }
 
   override def list(parent: String): util.List[String] = {
