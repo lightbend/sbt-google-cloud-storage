@@ -15,7 +15,7 @@ import org.apache.ivy.plugins.repository._
 
 case class GCSRepository(bucketName: String, publishPolicy: AccessRigths) extends AbstractRepository {
   private val storage: Storage = StorageOptions.getDefaultInstance.getService
-  private val bucket = storage.get(bucketName)
+  private lazy val bucket = storage.get(bucketName)
 
   override def getResource(source: String): GCSResource = {
     GCSResource.create(storage, bucketName, source)
