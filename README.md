@@ -1,3 +1,11 @@
+# This project is not maintained and now archived.
+
+
+
+
+
+
+
 # Google Cloud Storage SBT plugin
 An SBT dependency resolver and publisher for Google Cloud Storage. The plugin works out of one bucket at a time. This bucket has to be created and configured before using the plugin.
 
